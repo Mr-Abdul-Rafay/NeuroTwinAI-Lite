@@ -1,0 +1,36 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# ── Node / Frontend ──
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# ── Environment & Secrets ──
+.env
+.env.*
+*.secret
+
+# ── Database (keep db.json for seeding, ignore user-generated data) ──
+backend/app/db.json
+backend/db.json
+backend/db_test.json
+
+# ── AI Model (large binary — use Git LFS or host separately) ──
+# backend/models/best_model.h5
+
+# ── OS / Editor ──
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
