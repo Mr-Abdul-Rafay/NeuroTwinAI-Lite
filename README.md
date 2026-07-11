@@ -1,132 +1,244 @@
-<h1 align="center">
-  🧠 NeuroTwinAI-Lite
-</h1>
+# 🧠 NeuroTwinAI-Lite
+### **Digital Twin-Based AI System for Brain Tumor Insight**
+
+---
 
 <p align="center">
-  <strong>An AI-Powered Clinical Digital Twin Platform for Neurological Imaging & Patient Monitoring</strong>
+  <img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/Domain-AI%20in%20Healthcare%20%2F%20Medical%20Imaging-red?style=for-the-badge" alt="Domain" />
+  <img src="https://img.shields.io/badge/Type-Final%20Year%20Project%20(FYP)-blue?style=for-the-badge" alt="FYP" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square" alt="Status" />
-  <img src="https://img.shields.io/badge/Type-Final%20Year%20Project-blue?style=flat-square" alt="FYP" />
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Three.js-WebGL%203D-black?style=flat-square&logo=three.js" alt="Three.js" />
-  <img src="https://img.shields.io/badge/AI%20Model-Keras%20%2F%20TensorFlow-FF6F00?style=flat-square&logo=tensorflow&logoColor=white" alt="TF" />
+  <img src="https://img.shields.io/badge/TensorFlow-2.15-FF6F00?style=flat-square&logo=tensorflow&logoColor=white" alt="TensorFlow" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/Three.js-r160-black?style=flat-square&logo=three.js&logoColor=white" alt="Three.js" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Zustand-4.5-855A44?style=flat-square" alt="Zustand" />
 </p>
 
 ---
 
-## 📌 Overview
-
-**NeuroTwinAI-Lite** is a full-stack clinical intelligence platform built as a Final Year Project (FYP) in the domain of **AI in Healthcare**. It simulates a hospital-grade **neurological digital twin system** where medical professionals can:
-
-- Upload and process brain **MRI scans** (DICOM / NIfTI formats)
-- Run an **AI-powered tumor detection** pipeline using a pre-trained deep learning model
-- Visualize patient brains as **interactive 3D digital twins** rendered in WebGL (Three.js)
-- Monitor **real-time patient vitals & EEG signals** via a simulated IoT telemetry interface
-- Manage a full **patient directory** and generate automated **clinical reports**
-
-The platform is designed around real-world clinical workflows, featuring JWT-authenticated access, HIPAA-aware design patterns, and a dark-mode, glassmorphism UI built for clinical environments.
+## 🏛️ Academic Institutional Details
+* **Project Type:** Final Year Project (FYP)
+* **University:** Capital University of Science & Technology (CUST), Islamabad, Pakistan
+* **Supervisor:** Dr. Sabeen Masood
+* **Developer:** Abdul Rafay ([@Mr-Abdul-Rafay](https://github.com/Mr-Abdul-Rafay)) — Full-Stack Developer (FYP Solo Project)
 
 ---
 
-## ✨ Key Features
+## 📌 Project Overview
+**NeuroTwinAI-Lite** is a full-stack, clinical-grade intelligence platform that simulates a state-of-the-art neurological digital twin system. It bridges deep learning medical imaging pipelines with modern, immersive frontends to enable radiologists and neurosurgeons to:
+1. **Upload Multi-Modal MRI Scans** (FLAIR, T1ce, T2) in raw medical formats.
+2. **Execute a 3D U-Net Segmentation Pipeline** to isolate brain tumors with sub-millimeter precision.
+3. **Interact with 3D Neurological Digital Twins** featuring dynamic tumor layer visualization in WebGL.
+4. **Monitor Simulated Patient Vitals & EEG Telemetry** in real-time.
+5. **Generate Automated AI Clinical Reports** and manage historical patient records under HIPAA-aligned design patterns.
 
-| Feature | Description |
-|---|---|
-| 🔐 **JWT Authentication** | Secure clinician login/register with bcrypt password hashing and 24-hour token expiry |
-| 🧠 **3D Digital Twin Viewer** | Interactive WebGL brain model with tumor overlay, EEG node placement, multi-angle view presets & orbit controls |
-| 🤖 **AI Results Dashboard** | MRI slice viewer with segmentation mask overlays, tumor classification (type, grade, location, volume), and AI explanation panel |
-| 📤 **MRI Upload Pipeline** | Drag-and-drop file upload supporting `.dcm`, `.nii`, `.nii.gz`, `.zip` up to 500MB, queued through the backend AI engine |
-| 📡 **Live IoT Monitoring** | Real-time EEG waveform charts (4-channel: Fp1, Fp2, C3, C4) with vitals grid (HR, SpO₂, temperature) and alert panel |
-| 👥 **Patient Directory** | Searchable patient registry with demographics, diagnosis tags, and scan history |
-| 📊 **Clinical Dashboard** | KPI cards, real-time MRI activity table with status badges, quick actions, and AI insight feed |
-| 📋 **Report Generation** | Automated per-patient clinical text reports including scan metadata and clinician identity |
+---
+
+## ⚙️ Core Clinical Workflow
+Below is the system-level workflow mapping how clinical telemetry, MRI scans, and AI models interface:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Clinician as Medical Practitioner
+    participant UI as React SPA (Three.js/Zustand)
+    participant API as FastAPI Backend Gateway
+    participant DB as TinyDB Document Store
+    participant Model as 3D U-Net Engine (TensorFlow)
+
+    Clinician->>UI: Auth/Login (Clinician License ID)
+    UI->>API: POST /api/auth/login (verify license & credentials)
+    API-->>UI: Return Bearer JWT Access Token
+    Clinician->>UI: Register / Select Patient & Upload MRI (FLAIR, T1ce, T2)
+    UI->>API: POST /api/upload/mri (Multipart File Upload)
+    API->>Model: Run Segmentation Pipeline (128x128x128x3 Volume Input)
+    Model-->>API: Compute Segmentation Mask & Volumetric Stats (Dice: 0.8678)
+    API->>DB: Store Scan Meta, Mask Path, & Patient Record Relationship
+    API-->>UI: Return Segmentation Masks, Volume, Grad-CAM, & Metrics
+    UI->>Clinician: Render 3D Digital Twin Viewer & Grad-CAM Heatmap
+    Clinician->>UI: Trigger "Generate Report"
+    UI->>API: POST /api/reports/generate/{upload_id}
+    API-->>UI: Return Autogenerated PDF & AI Insights
+    UI->>Clinician: Download Auto-signed Clinical Report
+```
+
+---
+
+## ✨ Features Implemented
+
+### 1. 🤖 AI-Powered Tumor Segmentation
+* **Architecture:** Custom **3D U-Net** optimized for spatial contextual learning in MRI volumes.
+* **Model Parameters:** **5.65 Million parameters**, striking an ideal balance between deep feature extraction and fast CPU inference.
+* **Dataset & Performance:** Trained on the benchmark **BraTS 2021** (Brain Tumor Segmentation Challenge) dataset.
+  * **Whole Tumor Dice Score:** **0.8678**
+  * **Enhancing Tumor Dice Score:** **0.6487**
+* **Input Volume:** Multi-modal support accepting co-registered inputs: **FLAIR, T1ce, and T2** (Input shape: `128 × 128 × 128 × 3`).
+* **Multi-Class Output:** Classifies voxels into four categories:
+  * Class 0: Background
+  * Class 1: Necrotic/Non-Enhancing Tumor Core (NCR/NET)
+  * Class 2: Peritumoral Edema (ED)
+  * Class 3: GD-Enhancing Tumor (ET)
+
+### 2. 🌐 3D Digital Twin Viewer
+* **Technology:** WebGL rendering powered by **Three.js** and `@react-three/fiber` / `@react-three/drei`.
+* **Features:**
+  * Interactive 3D brain mesh with semi-transparent anatomical regions.
+  * Precise tumor overlays mapping the coordinates generated by the segmentation backend.
+  * Fluid orbit controls (rotate, zoom, pan) with view presets (Sagittal, Coronal, Axial).
+  * **Export formats:** Export custom digital twin models as **GLTF, OBJ, or STL** meshes for medical printing or external visualization.
+
+### 3. 📤 MRI Upload & Pipeline Processing
+* **Pipeline:** Accepts raw medical imaging formats (FLAIR, T1ce, T2).
+* **Processing:** Features a robust real-time async pipeline. Files are safely parsed, resized, normalized, and queued.
+* **UX:** Real-time upload progress bars and status trackers ("Queued", "Processing", "Completed") communicating via API status updates.
+
+### 4. 🔍 Explainable AI (Grad-CAM & XAI)
+* **Heatmap Overlays:** Visualizes model focus areas by generating Grad-CAM heatmaps showing which anatomical features directed the network's prediction.
+* **Explanations:** Automatic text explanation engine that translates mathematical confidence and volumetric data into clinical statements for patient-clinician communication.
+
+### 5. 👥 Patient Management (CRUD)
+* Full relational patient registry including demographic details, clinical history, and symptoms.
+* Search and filter systems tailored for clinic registries.
+* Relates patient records directly to scan history and generated reports.
+
+### 6. 📋 AI Clinical Reports
+* **Generation:** Generates professional, download-ready PDF reports with a single click.
+* **Contents:** Incorporates patient demographics, tumor volumetric analytics (in $cm^3$), classifier confidence percentages, multi-class segmentation breakdown, and clinical action plans.
+
+### 7. 📡 Real-Time IoT Monitoring
+* Simulates live patient telemetry inside the clinic.
+* **EEG Simulator:** Multi-channel EEG waveform tracker (Fp1, Fp2, C3, C4) powered by Recharts, simulating active brain signals.
+* **Vitals Grid:** Live-updating values for Heart Rate (BPM), SpO₂ (Oxygen Saturation), and Body Temperature (°C) with an alert system highlighting critical anomalies.
+
+### 8. 📊 Clinical Dashboard & Analytics
+* Comprehensive KPI dashboard featuring total statistics, active system queues, critical patient counts, and HIPAA compliance verifications.
+* Dynamic AI insight feed broadcasting real-time diagnostics updates across the clinical instance.
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Backend
-| Technology | Role |
-|---|---|
-| **FastAPI** | REST API framework — async-ready, OpenAPI auto-docs |
-| **TinyDB** | Lightweight JSON-based database (no setup required) |
-| **PyJWT** | JSON Web Token generation & verification |
-| **bcrypt** | Secure password hashing |
-| **Keras / TensorFlow** | Pre-trained brain tumor classification model (`best_model.h5`, ~65MB) |
-| **Uvicorn** | ASGI server for FastAPI |
-| **Pydantic** | Request/response schema validation |
+* **Python 3.11+** – Core programming language.
+* **FastAPI 0.115** – High-performance asynchronous REST API framework.
+* **TensorFlow 2.15** – Deep learning execution engine (CPU-optimized float32 policy).
+* **TinyDB 4.8** – Minimalist, document-based JSON store for zero-friction database setup.
+* **Uvicorn 0.24** – Fast ASGI server implementation.
+* **Nibabel 5.1** – Python medical imaging toolkit for parsing NIfTI/DICOM volumes.
+* **Scikit-image 0.21** – Image processing utilities (e.g., Marching Cubes for 3D mesh reconstruction).
 
 ### Frontend
-| Technology | Role |
-|---|---|
-| **React 19** | Component-based UI framework |
-| **Vite 8** | Next-generation build tool & dev server |
-| **React Router v7** | Client-side routing |
-| **Three.js + React Three Fiber** | 3D brain twin rendering with `@react-three/drei` |
-| **Recharts** | Live EEG waveform & vitals charting |
-| **Lucide React** | Icon system |
-| **Vanilla CSS** | Custom design system with glassmorphism, gradients, and micro-animations |
+* **React 19** – Component-based frontend library.
+* **Three.js r160** – 3D rendering library.
+* **Tailwind CSS 3.4** – Utility-first CSS framework for modern design aesthetics.
+* **Zustand 4.5** – Lightweight, robust client-side state store.
+* **React Query 5.0 (TanStack Query)** – Server-state synchronization, request caching, and query management.
+* **Vite 5.0** – Fast frontend tooling and dev server.
 
 ---
 
-## 🏗️ Project Architecture
+## 📂 Project Structure
 
 ```
 NeuroTwinAI-Lite/
-│
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # FastAPI app, all REST endpoints
-│   │   ├── auth.py          # JWT + bcrypt authentication logic
-│   │   ├── database.py      # TinyDB setup, table definitions, seed data
-│   │   └── db.json          # Persistent JSON database
+│   │   ├── routes/
+│   │   │   ├── upload.py         # [POST/GET] MRI file upload & statistics APIs
+│   │   │   ├── inference.py      # [POST/GET] 3D U-Net segmentation core endpoints
+│   │   │   ├── viz.py            # [POST] Marching Cubes -> 3D GLTF mesh generator
+│   │   │   ├── patients.py       # [CRUD] Patient registry database controllers
+│   │   │   └── reports.py        # [POST/GET] AI Clinical PDF report managers
+│   │   ├── services/
+│   │   │   └── model_service.py  # TensorFlow model loader & volume prediction utilities
+│   │   ├── auth.py              # JWT token signature & bcrypt hashing engine
+│   │   ├── database.py          # TinyDB database schemas, seed data & tables configuration
+│   │   ├── main.py              # FastAPI app initializer, CORS, & auth routers inclusion
+│   │   ├── test_api.py          # Backend test coverage module
+│   │   └── db.json              # Active clinical data store
 │   ├── models/
-│   │   └── best_model.h5    # Pre-trained Keras brain tumor classification model
-│   └── data/                # Supporting datasets
+│   │   ├── best_model.h5        # Original pre-trained 3D U-Net model (~65MB)
+│   │   └── best_model_float32.h5# Converted float32 model for general CPU compatibility
+│   ├── convert_to_float32.py    # Utility script converting model layers from FP16 to FP32
+│   ├── clear_all_uploads.py     # Utility script to clean up temporary uploads and masks
+│   └── requirements.txt         # Complete backend python dependencies list
 │
 └── frontend/
     ├── src/
-    │   ├── pages/
-    │   │   ├── LoginPage.jsx           # Clinician authentication
-    │   │   ├── RegisterPage.jsx        # New account registration
-    │   │   ├── DashboardPage.jsx       # Main clinical overview + KPIs
-    │   │   ├── TwinViewerPage.jsx      # 3D interactive brain model (Three.js)
-    │   │   ├── AIResultsPage.jsx       # MRI slice viewer + AI classification output
-    │   │   ├── MRIUploadPage.jsx       # Drag & drop MRI file upload
-    │   │   ├── IoTMonitoringPage.jsx   # Real-time vitals + live EEG charts
-    │   │   ├── PatientDirectoryPage.jsx # Patient registry
-    │   │   └── ReportsPage.jsx         # Clinical report generation
-    │   ├── components/
-    │   │   ├── Brain3D.jsx             # Three.js 3D brain scene component
-    │   │   ├── BrainVisual.jsx         # 2D brain SVG visualization
-    │   │   ├── NeuralBackground.jsx    # Animated neural particle background
-    │   │   └── ui/                     # Reusable UI components (GlassCard, Sidebar, StatusBadge...)
+    │   ├── api/                 # Axios-based API service calls
+    │   ├── assets/              # Static UI assets (hero images, model renders)
+    │   │   ├── brain_graphic.jpg
+    │   │   ├── hero.png
+    │   │   └── login_design_ss.png
+    │   ├── components/          # Reusable React components
+    │   │   ├── Brain3D.jsx      # Three.js 3D WebGL renderer for brain structures
+    │   │   ├── BrainVisual.jsx  # Interactive SVG representation of brain hemispheres
+    │   │   ├── ui/              # Atom/Design UI elements (GlassCard, Sidebar, TopNav)
+    │   │   └── PrintReport.jsx  # PDF printable rendering target component
     │   ├── context/
-    │   │   └── PatientContext.jsx      # Global patient state (React Context)
-    │   └── lib/
-    │       └── mockData.js             # Structured mock clinical datasets
-    ├── index.html
-    ├── vite.config.js
-    └── package.json
+    │   │   └── PatientContext.jsx # Global context providing active patient operations
+    │   ├── hooks/               # Custom hooks for upload pipeline and cleanup jobs
+    │   ├── pages/               # Views inside the app shell
+    │   │   ├── DashboardPage.jsx      # Aggregated metrics, vitals panels, recent feed
+    │   │   ├── TwinViewerPage.jsx     # 3D Digital Twin environment & controls
+    │   │   ├── AIResultsPage.jsx      # Slice-by-slice scan analysis and tumor classifications
+    │   │   ├── MRIUploadPage.jsx      # File queueing and upload execution terminal
+    │   │   ├── IoTMonitoringPage.jsx  # Real-time multi-channel EEG & telemetry dashboard
+    │   │   ├── PatientDirectoryPage.jsx # Full-featured clinical patient CRUD directory
+    │   │   ├── ReportsPage.jsx        # Clinical report generation center
+    │   │   ├── LoginPage.jsx          # Security gateway portal for licensed clinicians
+    │   │   └── RegisterPage.jsx       # Access request & HIPAA agreement registration
+    │   ├── store/               # Zustand global store configuration
+    │   ├── App.jsx              # Routing and navigation hub
+    │   └── main.jsx             # React DOM root bootstrapping
+    ├── vite.config.js           # Vite bundle configuration
+    └── package.json             # Frontend JavaScript dependencies list
 ```
 
 ---
 
-## 🚀 Getting Started
+## ⚡ API Endpoint Catalog
 
-### Prerequisites
-- **Node.js** v18+ and npm
-- **Python** 3.11+
-- Git
+All routes are prefix-grouped and secure-gated using **Bearer JWT Tokens** unless marked with a public access tag (🔓).
+
+| HTTP Method | Route Endpoint | Auth Status | Description |
+|:---|:---|:---|:---|
+| **POST** | `/api/auth/register` | 🔓 Public | Clinician account sign-up & licensing validation |
+| **POST** | `/api/auth/login` | 🔓 Public | Authenticate clinician credentials; return JWT |
+| **GET** | `/api/health` | 🔓 Public | Liveness probe inspecting 3D model status & system integrity |
+| **GET** | `/api/dashboard/data` | 🔑 Secure | Fetches global KPI tiles, upload histories, and insights |
+| **POST** | `/api/upload/mri` | 🔑 Secure | Multi-part upload for FLAIR/T1ce/T2 files to execute pipeline |
+| **GET** | `/api/upload/recent` | 🔑 Secure | Retrieves list of the 5 most recent MRI scan uploads |
+| **GET** | `/api/upload/stats` | 🔑 Secure | Aggregates data on processing volumes and classification counts |
+| **POST** | `/api/inference/segment` | 🔑 Secure | Initiates 3D U-Net segmentation on a specified upload ID |
+| **GET** | `/api/inference/result/{upload_id}`| 🔑 Secure | Returns segmentation metrics, coordinates, and volumes |
+| **GET** | `/api/inference/result/{upload_id}/slices`| 🔑 Secure | Returns 2D slices data for the axial/sagittal/coronal viewer |
+| **GET** | `/api/inference/model-info` | 🔑 Secure | Details model metadata, shape params, and memory usage |
+| **POST** | `/api/viz/mesh` | 🔑 Secure | Triggers Marching Cubes to output GLTF 3D meshes |
+| **POST** | `/api/patients` | 🔑 Secure | Registers a new patient record to the database |
+| **GET** | `/api/patients` | 🔑 Secure | Queries all clinical patient listings |
+| **GET** | `/api/patients/{id}` | 🔑 Secure | Fetches details for a specific patient |
+| **PUT** | `/api/patients/{id}` | 🔑 Secure | Modifies attributes of a registered patient |
+| **DELETE**| `/api/patients/{id}` | 🔑 Secure | Purges a patient and references from the system |
+| **POST** | `/api/reports/generate/{upload_id}`| 🔑 Secure | Autogenerates and compiles PDF clinical diagnostics |
 
 ---
 
-### 1. Clone the Repository
+## 🚀 Getting Started & Installation
 
+### Prerequisites
+* **Node.js** (v18.0 or higher) & npm
+* **Python** (v3.11 or higher)
+* Git
+
+---
+
+### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/Mr-Abdul-Rafay/NeuroTwinAI-Lite.git
 cd NeuroTwinAI-Lite
@@ -134,121 +246,65 @@ cd NeuroTwinAI-Lite
 
 ---
 
-### 2. Backend Setup
-
-```bash
-# Navigate to backend
-cd backend
-
-# Create and activate virtual environment
-python -m venv .venv
-
-# On Windows:
-.venv\Scripts\activate
-
-# On macOS/Linux:
-source .venv/bin/activate
-
-# Install dependencies
-pip install fastapi uvicorn tinydb pydantic PyJWT bcrypt
-
-# Start the backend server
-cd app
-python main.py
-```
-
-> The API will be live at: **http://127.0.0.1:8000**
-> Auto-generated API docs available at: **http://127.0.0.1:8000/docs**
-
----
-
-### 3. Frontend Setup
-
-```bash
-# Open a new terminal and navigate to frontend
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
-
-> The frontend will be live at: **http://localhost:5173**
+### Step 2: Backend Setup
+1. **Navigate to the backend directory:**
+   ```bash
+   cd backend
+   ```
+2. **Initialize a virtual environment:**
+   * **Windows:**
+     ```bash
+     python -m venv .venv
+     .venv\Scripts\activate
+     ```
+   * **macOS/Linux:**
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
+3. **Install the dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Launch the FastAPI Server:**
+   ```bash
+   # Run from the root of the backend directory
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   ```
+   * **API Docs URL:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+   * **Liveness Probe:** [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
 
 ---
 
-## 🔌 API Endpoints
-
-| Method | Endpoint | Auth Required | Description |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | ❌ | Register a new clinical account |
-| `POST` | `/api/auth/login` | ❌ | Authenticate and receive JWT token |
-| `GET` | `/api/dashboard/data` | ✅ | Fetch KPIs, scan activity, AI insights |
-| `POST` | `/api/scans/upload` | ✅ | Submit a new MRI scan for processing |
-| `POST` | `/api/scans/resolve` | ✅ | Resolve an ACTION REQUIRED scan alert |
-| `POST` | `/api/insights/report` | ✅ | Generate a clinical text report for a patient |
-
----
-
-## 🧪 AI Model
-
-The platform includes a **pre-trained Keras deep learning model** (`backend/models/best_model.h5`, ~65MB) trained for **brain tumor classification** from MRI data. The frontend AI Results page demonstrates the model's output including:
-
-- **Tumor Detection** — Binary classification (Tumor / No Tumor)
-- **Tumor Type** — Glioblastoma, Astrocytoma, Meningioma, Oligodendroglioma
-- **Grade Classification** — WHO Grade I–IV
-- **Location Mapping** — Frontal, Temporal, Parietal lobe identification
-- **Volume Estimation** — cm³ volumetric approximation
-- **Segmentation Overlay** — Necrotic core, enhancing tumor, peritumoral edema visualization
-- **Explainability Panel** — Natural language AI reasoning output
+### Step 3: Frontend Setup
+1. **Navigate to the frontend directory:**
+   ```bash
+   cd ../frontend
+   ```
+2. **Install Node modules:**
+   ```bash
+   npm install
+   ```
+3. **Launch the Vite Dev Server:**
+   ```bash
+   npm run dev
+   ```
+   * **App Live URL:** [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## 🖥️ Application Screenshots
-
-> Below is a summary of the key views in the application:
-
-| Page | Description |
-|---|---|
-| **Login / Register** | Clinician-gated authentication with license ID, hospital affiliation, and compliance confirmation |
-| **Dashboard** | KPI tiles, patient vitals (HR, SpO₂, Temp) with animated EKG waves, MRI activity table, quick action panel |
-| **3D Twin Viewer** | Full Three.js brain model with tumor visualization, EEG node overlay, orbital controls, and multiple view presets |
-| **AI Results** | Side-by-side MRI slice viewer with scan mode tabs (Original / Segmentation Mask / Overlay) and classification panel |
-| **IoT Monitoring** | Live 4-channel EEG Recharts waveform with speed controls, vitals grid, and clinical alert history |
-| **MRI Upload** | Drag-and-drop file upload zone with format validation, upload progress tracking, and submission queue |
-| **Patient Directory** | Searchable patient registry with diagnosis tags and status badges |
+## 🔒 Security, Compliance, & Safety Design
+* **Clinician Access Gating:** Access is strictly gated behind clinician login requiring specific professional License IDs and Hospital details.
+* **Cryptographic Standards:** All client-side communication tokens use signed `PyJWT` payloads. Passwords and keys undergo salting and encryption using `bcrypt`.
+* **State Safety Management:** In order to protect patient data, session variables are stored securely and cleaned up after token expiration or user logout.
+* **DType Compatibility:** The backend model uses a globally enforced float32 precision policy to run efficiently on standard CPU-based deployment hardware, resolving common Tensor compatibility errors.
 
 ---
 
-## 🔒 Security Design
-
-- **JWT-based authentication** — All clinical endpoints require a Bearer token
-- **bcrypt password hashing** — Passwords are never stored in plain text
-- **Token expiry** — Sessions expire after 24 hours
-- **CORS middleware** — Configurable origin whitelisting for production deployment
-- **HIPAA-aware design** — UI includes compliance confirmation on registration and displays HIPAA verified status on dashboard
+## 📄 License & Terms
+This project was developed strictly as an academic Final Year Project. All rights reserved by Capital University of Science & Technology, Islamabad & the author.
 
 ---
-
-## 👨‍💻 Developer
-
-| | |
-|---|---|
-| **Name** | Abdul Rafay |
-| **Role** | Full-Stack Developer (FYP Solo Project) |
-| **GitHub** | [@Mr-Abdul-Rafay](https://github.com/Mr-Abdul-Rafay) |
-| **Project Type** | Final Year Project (FYP) — AI in Healthcare |
-
----
-
-## 📄 License
-
-This project is developed as an academic Final Year Project. All rights reserved by the author.
-
----
-
 <p align="center">
-  Built with ❤️ for healthcare AI — NeuroTwinAI-Lite © 2025
+  Developed with 🧠 and ❤️ for Clinical AI innovation — NeuroTwinAI-Lite © 2025-2026
 </p>
