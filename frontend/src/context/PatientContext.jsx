@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import usePatientStore from '../store/patientStore';
 
 const PatientContext = createContext();
 
@@ -125,22 +126,64 @@ export const patientProfiles = {
   }
 };
 
-// Map patient directory ID to the corresponding context ID
-export const mapDirectoryIdToContextId = (directoryId) => {
-  const mapping = {
-    'BR-00472': '#TX-9042', // John Doe
-    'BR-00891': '#TX-8821', // Sarah Jenkins / Smith
-    'BR-00123': '#TX-8911', // Mike Johnson / Jane Smith (Clear Scan)
-    'BR-00567': '#TX-8821', // Emily Davis / Sarah Jenkins (Astrocytoma)
-    'BR-00612': '#TX-5717', // Robert Chen
-  };
-  return mapping[directoryId] || '#TX-7430'; // fallback to Omer
-};
-
 export function PatientProvider({ children }) {
-  const [selectedPatientId, setSelectedPatientId] = useState('#TX-7430');
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
+  const { patients } = usePatientStore();
 
-  const selectedPatient = patientProfiles[selectedPatientId] || patientProfiles['#TX-7430'];
+  const calculateAge = (dobString) => {
+    if (!dobString) return '—';
+    try {
+      const dob = new Date(dobString);
+      const diffMs = Date.now() - dob.getTime();
+      const ageDate = new Date(diffMs);
+      return Math.abs(ageDate.getUTCFullYear() - 1970);
+    } catch {
+      return '—';
+    }
+  };
+
+  // Auto-select the first available real patient when none is selected
+  // or when the currently selected one was deleted
+  useEffect(() => {
+    if (patients.length === 0) {
+      setSelectedPatientId(null);
+      return;
+    }
+    const stillExists = patients.some((p) => p.id === selectedPatientId);
+    if (!selectedPatientId || !stillExists) {
+      setSelectedPatientId(patients[0].id);
+    }
+  }, [patients, selectedPatientId]);
+
+  // Resolve the selected patient from the real DB only — no dummy fallback
+  const dbPatient = patients.find((p) => p.id === selectedPatientId) ?? null;
+
+  let selectedPatient = null;
+  if (dbPatient) {
+    selectedPatient = {
+      id: dbPatient.id,
+      name: `${dbPatient.first_name} ${dbPatient.last_name}`,
+      status: 'Connected',
+      code: dbPatient.id,
+      age: calculateAge(dbPatient.dob),
+      gender: dbPatient.gender,
+      dob: dbPatient.dob,
+      lastScan: dbPatient.updated_at ? new Date(dbPatient.updated_at).toLocaleDateString() : '—',
+      diagnosis: dbPatient.medical_history || 'Under Observation',
+      tumorType: 'None',
+      grade: '—',
+      location: '—',
+      volume: '—',
+      confidence: 100.0,
+      isNormal: true,
+      segments: [
+        { label: 'Necrotic Core',   percent: 0, color: '#FF0000' },
+        { label: 'Edema',           percent: 0, color: '#FFFF00' },
+        { label: 'Enhancing Tumor', percent: 0, color: '#0000FF' },
+      ],
+      explanation: dbPatient.medical_history || 'Under Observation'
+    };
+  }
 
   return (
     <PatientContext.Provider value={{

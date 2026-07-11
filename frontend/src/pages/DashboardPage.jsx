@@ -3,50 +3,92 @@ import {
   Bell, CheckCircle, Activity, AlertTriangle,
   Cpu, Upload, Shield, Server, FileText, X, Users, Brain,
   Heart, Waves, Thermometer, Calendar, ChevronDown, Edit3,
-  FolderUp, Radio
+  FolderUp, Radio, UserPlus
 } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import { usePatient } from '../context/PatientContext';
+import { useRecentUploads } from '../hooks/useUpload';
+import useUploadStore from '../store/uploadStore';
+import usePatientStore from '../store/patientStore';
+import ActivityRow from '../components/ActivityRow';
+
+function LoadingSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px 0' }}>
+      <style>{`
+        @keyframes skeleton-pulse {
+          0% { opacity: 0.3; }
+          50% { opacity: 0.8; }
+          100% { opacity: 0.3; }
+        }
+        .skeleton-row {
+          animation: skeleton-pulse 1.5s infinite ease-in-out;
+        }
+      `}</style>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="skeleton-row" style={{ height: '48px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', width: '100%' }} />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ message }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
+      <style>{`
+        .empty-icon {
+          animation: float-slow 3s infinite ease-in-out;
+        }
+        @keyframes float-slow {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
+          100% { transform: translateY(0px); }
+        }
+      `}</style>
+      <div className="empty-icon" style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255, 255, 255, 0.25)', marginBottom: '16px' }}>
+        <FolderUp size={20} />
+      </div>
+      <p style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '13px', margin: '0 0 16px 0', fontFamily: 'Inter, sans-serif' }}>{message}</p>
+    </div>
+  );
+}
 
 export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
-  const { selectedPatientId, setSelectedPatientId, selectedPatient: currentProfile, patientProfiles } = usePatient();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { selectedPatientId, setSelectedPatientId, selectedPatient: currentProfile } = usePatient();
+  
+  // Zustand Stores
+  const patients = usePatientStore((state) => state.patients);
+  const fetchPatients = usePatientStore((state) => state.fetchPatients);
+  const patientsLoading = usePatientStore((state) => state.isLoading);
+  
+  const uploads = useUploadStore((state) => state.uploads);
+  const setUploads = useUploadStore((state) => state.setUploads);
+
+  // States
   const [consoleReport, setConsoleReport] = useState('');
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadScanType, setUploadScanType] = useState('Cortical Thickness Mapping');
-  const [uploading, setUploading] = useState(false);
   const [resolvingId, setResolvingId] = useState(null);
 
-  const fetchDashboardData = async () => {
-    try {
-      const token = localStorage.getItem('neuro_token');
-      if (!token) { onLogout(); return; }
-      const response = await fetch(`${apiBase}/api/dashboard/data`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) {
-        if (response.status === 401) { onLogout(); return; }
-        throw new Error('Failed to retrieve clinical datasets');
-      }
-      setData(await response.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch recent uploads from backend using React Query hook
+  const { data: recentUploads = [], isLoading: uploadsLoading } = useRecentUploads(50);
 
+  // Load and refresh patient lists
   useEffect(() => {
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchPatients();
+  }, [fetchPatients]);
+
+  // Sync React Query cache with Zustand upload store safely (compare IDs & statuses to prevent infinite loop)
+  useEffect(() => {
+    if (recentUploads) {
+      const currentHash = uploads.map(u => `${u.id || u.upload_id}-${u.status || ''}`).join(',');
+      const newHash = recentUploads.map(u => `${u.id || u.upload_id}-${u.status || ''}`).join(',');
+      if (currentHash !== newHash) {
+        setUploads(recentUploads);
+      }
+    }
+  }, [recentUploads, uploads, setUploads]);
 
   const getGreetingName = () => {
     if (!user?.full_name) return 'Dr. Sarah';
-    // Format full name or return first name
     const parts = user.full_name.split(' ');
     return parts.length > 1 ? `${parts[0]} ${parts[1]}` : parts[0];
   };
@@ -63,28 +105,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
     return new Date().toLocaleDateString('en-US', options);
   };
 
-  const handleUploadMRI = async (e) => {
-    e.preventDefault();
-    setUploading(true);
-    try {
-      const token = localStorage.getItem('neuro_token');
-      const response = await fetch(`${apiBase}/api/scans/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ scan_type: uploadScanType })
-      });
-      if (!response.ok) throw new Error('Upload request rejected by clinical nodes');
-      const uploadRes = await response.json();
-      setSelectedPatientId(uploadRes.scan.patient_id);
-      setShowUploadModal(false);
-      await fetchDashboardData();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleResolveScan = async (patientId) => {
     setResolvingId(patientId);
     try {
@@ -95,7 +115,7 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
         body: JSON.stringify({ patient_id: patientId })
       });
       if (!response.ok) throw new Error('Could not synchronize node override');
-      await fetchDashboardData();
+      fetchPatients();
     } catch (err) {
       alert(err.message);
     } finally {
@@ -120,7 +140,24 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
     }
   };
 
-  if (loading) {
+  // Filter uploads to only keep those belonging to registered patients
+  const registeredPatientIds = new Set(patients.map((p) => p.id));
+  const filteredUploads = uploads.filter((u) => registeredPatientIds.has(u.patient_id));
+
+  // Compute live counts for greeting & status cards using filtered list
+  const activeScansCount = filteredUploads.filter((u) => u.status?.toLowerCase() === 'processing').length;
+  const urgentCasesCount = patients.filter((p) => {
+    const pUploads = filteredUploads.filter((u) => u.patient_id === p.id);
+    if (pUploads.length === 0) return false;
+    const latest = [...pUploads].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    const seg = latest.segmentation || latest.results || {};
+    return (seg.tumor_detected ?? false) && (seg.tumor_volume_cm3 ?? 0) > 3.5;
+  }).length;
+
+  // Render full-page empty state if directory contains 0 profiles
+  const pageLoading = patientsLoading && patients.length === 0;
+
+  if (pageLoading) {
     return (
       <div className="loading-screen">
         <div className="loading-content">
@@ -131,7 +168,33 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
     );
   }
 
-  const scans = data?.scans || [];
+  if (patients.length === 0) {
+    return (
+      <div className="page-content fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '75vh', textAlign: 'center' }}>
+        <div className="glass-card glowing-card" style={{ padding: '40px', maxWidth: '460px', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,15,25,0.65)' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(70,241,197,0.1)', border: '1px solid rgba(70,241,197,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#46f1c5' }}>
+            <Users size={32} />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#fff', margin: 0 }}>No Patients Registered</h2>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: '1.6', margin: 0 }}>
+            No patients registered. Add a patient in the primary directory to begin volumetric mapping and digital twin analysis.
+          </p>
+          <button 
+            className="btn-primary" 
+            onClick={() => onNavigate('patients')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '8px', fontWeight: '600' }}
+          >
+            <UserPlus size={16} /> Go to Patient Directory
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Get recent 5 uploads for Dashboard activity listing using filtered list
+  const sortedUploads = [...filteredUploads]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const recentUploadsList = sortedUploads.slice(-5).reverse();
 
   return (
     <div className="page-content fade-in">
@@ -147,7 +210,7 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             {getTimeGreeting()}, {getGreetingName()} 👋
           </h1>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px', marginBottom: 0 }}>
-            Systems clear. 3 pending urgent neural twin simulations ready for review.
+            Systems clear. {activeScansCount} active scans and {urgentCasesCount} urgent cases ready for review.
           </p>
         </div>
         <div style={{
@@ -174,29 +237,32 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
         alignItems: 'center',
         padding: '24px'
       }}>
-        {/* Left side details */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#fff', margin: 0 }}>{currentProfile.name}</h2>
-            <span style={{
-              backgroundColor: 'rgba(70, 241, 197, 0.1)',
-              border: '1px solid rgba(70, 241, 197, 0.25)',
-              color: '#46f1c5',
-              padding: '3px 10px',
-              borderRadius: '999px',
-              fontSize: '12px',
-              fontWeight: '600',
-              fontFamily: 'Roboto Mono'
-            }}>
-              {currentProfile.status}
-            </span>
+            <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#fff', margin: 0 }}>
+              {currentProfile?.name || 'Select Patient'}
+            </h2>
+            {currentProfile?.status && (
+              <span style={{
+                backgroundColor: 'rgba(70, 241, 197, 0.1)',
+                border: '1px solid rgba(70, 241, 197, 0.25)',
+                color: '#46f1c5',
+                padding: '3px 10px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                fontWeight: '600',
+                fontFamily: 'Roboto Mono'
+              }}>
+                {currentProfile.status}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', color: 'rgba(255,255,255,0.5)', fontSize: '13px', fontFamily: 'Roboto Mono' }}>
-            <span style={{ fontWeight: '700', color: '#46f1c5' }}>{currentProfile.code}</span>
-            <span>{currentProfile.age} / {currentProfile.gender}</span>
-            <span>DOB {currentProfile.dob}</span>
-            <span>Last scan {currentProfile.lastScan}</span>
+            <span style={{ fontWeight: '700', color: '#46f1c5' }}>{currentProfile?.code || '—'}</span>
+            <span>{currentProfile?.age || '—'} / {currentProfile?.gender || '—'}</span>
+            <span>DOB {currentProfile?.dob || '—'}</span>
+            <span>Last scan {currentProfile?.lastScan || '—'}</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -210,12 +276,12 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
               fontSize: '12px',
               fontWeight: '600'
             }}>
-              {currentProfile.diagnosis}
+              {currentProfile?.diagnosis || 'Under Observation'}
             </span>
           </div>
         </div>
 
-        {/* Right side buttons */}
+        {/* Right select selection options */}
         <div style={{ display: 'flex', gap: '12px' }}>
           <div style={{ position: 'relative' }}>
             <select
@@ -230,22 +296,17 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
                 outline: 'none'
               }}
             >
-              {Object.keys(patientProfiles).map(id => (
-                <option key={id} value={id} style={{ backgroundColor: '#131318', color: '#fff' }}>
-                  {patientProfiles[id].name} ({id})
+              {patients.map(p => (
+                <option key={p.id} value={p.id} style={{ backgroundColor: '#131318', color: '#fff' }}>
+                  {p.first_name} {p.last_name} ({p.id})
                 </option>
               ))}
-              {!patientProfiles[selectedPatientId] && (
-                <option value={selectedPatientId} style={{ backgroundColor: '#131318', color: '#fff' }}>
-                  Patient {selectedPatientId}
-                </option>
-              )}
             </select>
             <ChevronDown size={14} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'rgba(255,255,255,0.4)' }} />
           </div>
 
-          <button className="btn-secondary" onClick={() => alert(`Editing details for ${currentProfile.name}`)}>
-            <Edit3 size={14} /> Edit Details
+          <button className="btn-secondary" onClick={() => onNavigate('patients')}>
+            <Users size={14} /> Patient Directory
           </button>
         </div>
       </div>
@@ -254,7 +315,8 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '16px'
+        gap: '16px',
+        marginBottom: '24px'
       }}>
         {/* Heart Rate Card */}
         <div className="glass-card glowing-card" style={{ 
@@ -264,7 +326,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
           position: 'relative',
           overflow: 'hidden'
         }}>
-          {/* Card Top Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
             <div>
               <span className="data-label" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>HEART RATE</span>
@@ -290,7 +351,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             </div>
           </div>
 
-          {/* EKG Waves Section */}
           <div style={{ 
             height: '45px', 
             width: '100%', 
@@ -322,7 +382,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             </svg>
           </div>
 
-          {/* Bottom stats row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', fontSize: '11px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.3)' }}>
             <span style={{
               backgroundColor: 'rgba(46, 204, 113, 0.1)',
@@ -346,7 +405,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
           position: 'relative',
           overflow: 'hidden'
         }}>
-          {/* Card Top Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
             <div>
               <span className="data-label" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>SPO2</span>
@@ -372,7 +430,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             </div>
           </div>
 
-          {/* Sine Waves Section */}
           <div style={{ 
             height: '45px', 
             width: '100%', 
@@ -404,7 +461,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             </svg>
           </div>
 
-          {/* Bottom stats row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', fontSize: '11px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.3)' }}>
             <span style={{
               backgroundColor: 'rgba(46, 204, 113, 0.1)',
@@ -416,7 +472,7 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             }}>
               Normal
             </span>
-            <span>↑ 20:54</span>
+            <span>↓ 20:54</span>
           </div>
         </div>
 
@@ -428,7 +484,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
           position: 'relative',
           overflow: 'hidden'
         }}>
-          {/* Card Top Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
             <div>
               <span className="data-label" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>TEMPERATURE</span>
@@ -454,7 +509,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             </div>
           </div>
 
-          {/* Temp Waves Section */}
           <div style={{ 
             height: '45px', 
             width: '100%', 
@@ -486,7 +540,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
             </svg>
           </div>
 
-          {/* Bottom stats row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', fontSize: '11px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.3)' }}>
             <span style={{
               backgroundColor: 'rgba(46, 204, 113, 0.1)',
@@ -512,7 +565,7 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
               <Activity size={16} style={{ color: '#46f1c5' }} /> Recent MRI Activity
             </h3>
             <button 
-              onClick={() => onNavigate('ai-results')}
+              onClick={() => onNavigate('upload-history')}
               style={{
                 background: 'none',
                 border: 'none',
@@ -520,71 +573,52 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
                 fontSize: '12px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                textDecoration: 'underline',
+                textDecoration: 'none',
                 padding: 0
               }}
             >
-              View All Scans
+              View All Uploads →
             </button>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="activity-table">
-              <thead>
-                <tr>
-                  <th className="data-label at-header">PATIENT ID</th>
-                  <th className="data-label at-header">SCAN TYPE</th>
-                  <th className="data-label at-header">STATUS</th>
-                  <th className="data-label at-header" style={{ textAlign: 'right' }}>PROGRESS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scans.map(scan => {
-                  const isSelected = selectedPatientId === scan.patient_id;
-                  return (
-                    <tr
-                      key={scan.patient_id}
-                      onClick={() => { setSelectedPatientId(scan.patient_id); setConsoleReport(''); }}
-                      className={`activity-row ${isSelected ? 'activity-row-selected' : ''}`}
-                    >
-                      <td className="at-cell at-id" style={{ color: isSelected ? '#46f1c5' : undefined }}>
-                        {scan.patient_id}
-                      </td>
-                      <td className="at-cell">{scan.scan_type}</td>
-                      <td className="at-cell">
-                        {scan.status === 'PROCESSING' && <span className="badge-processing">● PROCESSING</span>}
-                        {scan.status === 'COMPLETED'  && <span className="badge-completed">✓ COMPLETED</span>}
-                        {scan.status === 'ACTION REQUIRED' && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className="badge-warning">⚠ ACTION REQUIRED</span>
-                            <button
-                              className="resolve-btn"
-                              onClick={(e) => { e.stopPropagation(); handleResolveScan(scan.patient_id); }}
-                              disabled={resolvingId === scan.patient_id}
-                            >
-                              {resolvingId === scan.patient_id ? 'Syncing...' : 'RESOLVE'}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                      <td className="at-cell at-progress">
-                        <span className="at-pct">{scan.progress}%</span>
-                        <div className="progress-track">
-                          <div
-                            className="progress-fill"
-                            style={{
-                              width: `${scan.progress}%`,
-                              background: scan.status === 'ACTION REQUIRED' ? 'var(--warning-gradient)' : 'var(--primary-gradient)',
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {uploadsLoading ? (
+            <LoadingSkeleton />
+          ) : !recentUploadsList || recentUploadsList.length === 0 ? (
+            <EmptyState message="No uploads yet. Upload an MRI to get started." />
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="activity-table">
+                <thead>
+                  <tr>
+                    <th className="data-label at-header">PATIENT ID</th>
+                    <th className="data-label at-header">SCAN TYPE</th>
+                    <th className="data-label at-header">STATUS</th>
+                    <th className="data-label at-header" style={{ textAlign: 'right' }}>PROGRESS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentUploadsList.map(upload => (
+                    <ActivityRow
+                      key={upload.id || upload.upload_id}
+                      upload={upload}
+                      isSelected={selectedPatientId === upload.patient_id}
+                      onClick={() => {
+                        setSelectedPatientId(upload.patient_id);
+                        setConsoleReport('');
+                        if (upload.status?.toLowerCase() === 'completed') {
+                          useUploadStore.getState().setUploadDone(
+                            upload.upload_id,
+                            upload.segmentation,
+                            null
+                          );
+                        }
+                      }}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </GlassCard>
 
         {/* Quick Actions Column */}
@@ -593,7 +627,7 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
           
           {/* Upload MRI Card */}
           <div 
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => onNavigate('mri-upload')}
             className="glass-card glowing-card" 
             style={{ 
               display: 'flex', 
@@ -621,7 +655,7 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
 
           {/* Generate Report Card */}
           <div 
-            onClick={handleGenerateReport}
+            onClick={() => onNavigate('reports')}
             className="glass-card glowing-card" 
             style={{ 
               display: 'flex', 
@@ -683,42 +717,6 @@ export default function DashboardPage({ user, onLogout, apiBase, onNavigate }) {
           </div>
         </div>
       </div>
-
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <div className="modal-overlay">
-          <div className="glass-layer-3 modal-box">
-            <button className="modal-close" onClick={() => setShowUploadModal(false)}>
-              <X size={18} />
-            </button>
-            <h3 className="headline-md" style={{ color: '#fff', marginBottom: '8px' }}>Upload MRI Modality</h3>
-            <p className="body-md" style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '24px' }}>
-              Select telemetry scanner output to process with the digital twin engine.
-            </p>
-            <form onSubmit={handleUploadMRI} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div>
-                <label className="data-label" style={{ display: 'block', marginBottom: '8px' }}>SCAN MODALITY TYPE</label>
-                <select
-                  value={uploadScanType}
-                  onChange={e => setUploadScanType(e.target.value)}
-                  className="input-field"
-                  style={{ backgroundColor: '#1b1b20', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
-                >
-                  <option>Cortical Thickness Mapping</option>
-                  <option>Vascular Perfusion Analysis</option>
-                  <option>Hippocampal Volumetrics</option>
-                  <option>Functional Connectivity Map</option>
-                  <option>Sub-cortical Diffusion Profiling</option>
-                </select>
-              </div>
-              <button type="submit" disabled={uploading} className="btn-primary" style={{ justifyContent: 'center' }}>
-                {uploading ? 'Processing Signal...' : 'Initiate Neural Mapping'}
-                <Upload size={16} />
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

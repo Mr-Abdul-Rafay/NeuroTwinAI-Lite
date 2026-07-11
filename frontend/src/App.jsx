@@ -8,22 +8,29 @@ import MRIUploadPage from './pages/MRIUploadPage';
 import IoTMonitoringPage from './pages/IoTMonitoringPage';
 import ReportsPage from './pages/ReportsPage';
 import PatientDirectoryPage from './pages/PatientDirectoryPage';
+import UploadHistoryPage from './pages/UploadHistoryPage';
 import AppShell from './components/AppShell';
 import { PatientProvider } from './context/PatientContext';
+import { usePatientCleanup } from './hooks/usePatientCleanup';
 
 const apiBase = 'http://127.0.0.1:8000';
 
 // Pages that live inside the AppShell (sidebar + topnav)
 const SHELL_PAGES = [
   'dashboard', 'ai-results', 'twin-viewer',
-  'mri-upload', 'iot-monitoring', 'reports', 'patients',
+  'mri-upload', 'iot-monitoring', 'reports', 'patients', 'upload-history',
 ];
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('login');
   const [user, setUser] = useState(null);
 
+  usePatientCleanup();
+
   useEffect(() => {
+    console.log('✅ NeuroTwinAI-Lite App mounted!');
+    console.log('📍 Current path:', window.location.pathname);
+    
     const token = localStorage.getItem('neuro_token');
     const savedUser = localStorage.getItem('neuro_user');
     if (token && savedUser) {
@@ -86,13 +93,16 @@ export default function App() {
               onNavigate={setCurrentPage}
             />
           )}
-          {currentPage === 'ai-results' && <AIResultsPage />}
+          {currentPage === 'ai-results' && <AIResultsPage onNavigate={setCurrentPage} />}
           {currentPage === 'twin-viewer' && <TwinViewerPage />}
-          {currentPage === 'mri-upload' && <MRIUploadPage apiBase={apiBase} />}
+          {currentPage === 'mri-upload' && <MRIUploadPage apiBase={apiBase} onNavigate={setCurrentPage} />}
           {currentPage === 'iot-monitoring' && <IoTMonitoringPage />}
           {currentPage === 'reports' && <ReportsPage />}
           {currentPage === 'patients' && (
             <PatientDirectoryPage onNavigate={setCurrentPage} />
+          )}
+          {currentPage === 'upload-history' && (
+            <UploadHistoryPage onNavigate={setCurrentPage} />
           )}
         </AppShell>
       </PatientProvider>

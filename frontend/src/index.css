@@ -196,6 +196,30 @@ body {
 }
 .ctrl-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+.color-legend {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+}
+
+.color-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.color-box {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
 /* ============================================================
    FORM INPUTS
    ============================================================ */
@@ -1522,4 +1546,253 @@ select.input-field { cursor: pointer; }
 .temp-scroll-wave {
   animation: temp-scroll 5.5s linear infinite;
 }
+
+/* ✅ CORRECT: Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.modal-container {
+  position: relative;
+  max-height: 90vh;
+  max-width: 600px;
+  width: 100%;
+  background: rgba(20, 20, 40, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Custom scrollbar for modal body */
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 170, 0.4);
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 170, 0.6);
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+  background: rgba(20, 20, 40, 0.95);
+}
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Hide all UI layout and screen-only interaction elements */
+  .app-shell,
+  .sidebar,
+  .app-body,
+  .topnav,
+  .app-main,
+  .page-content,
+  .reports-layout,
+  .report-list-card,
+  .report-preview-card,
+  .report-preview-actions,
+  .modal-overlay,
+  .toast,
+  .toaster {
+    display: none !important;
+  }
+
+  /* Show the print-only container */
+  .print-only,
+  .print-only * {
+    display: block !important;
+  }
+
+  /* Force light mode backgrounds & page settings */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 20mm !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Print Report styling */
+  .print-report {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+    color: #000000 !important;
+    width: 100% !important;
+    background: transparent !important;
+  }
+
+  .print-report * {
+    color: #000000 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+  }
+
+  .print-report .report-header {
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 24px !important;
+  }
+
+  .print-report .report-header h1 {
+    font-size: 24px !important;
+    margin: 0 0 4px 0 !important;
+    font-weight: 700 !important;
+  }
+
+  .print-report .report-header h2 {
+    font-size: 16px !important;
+    margin: 0 0 8px 0 !important;
+    color: #555555 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .print-report .report-header p {
+    font-size: 12px !important;
+    margin: 0 !important;
+    color: #777777 !important;
+  }
+
+  .print-report .patient-section,
+  .print-report .ai-summary-section,
+  .print-report .findings-section,
+  .print-report .segmentation-section,
+  .print-report .recommendations-section {
+    margin-bottom: 24px !important;
+  }
+
+  .print-report h3 {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid #dddddd !important;
+    padding-bottom: 6px !important;
+    margin: 0 0 12px 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #000000 !important;
+  }
+
+  .print-report .info-grid,
+  .print-report .segmentation-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .print-report .info-grid > div,
+  .print-report .segmentation-grid > div {
+    padding: 8px 12px !important;
+    background: #f8f9fa !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 6px !important;
+    font-size: 13px !important;
+  }
+
+  .print-report p {
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    margin: 0 0 10px 0 !important;
+    color: #333333 !important;
+  }
+
+  .print-report ul {
+    padding-left: 20px !important;
+    margin: 0 !important;
+  }
+
+  .print-report li {
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    margin-bottom: 6px !important;
+    color: #333333 !important;
+    display: list-item !important;
+    list-style-type: disc !important;
+  }
+
+  .print-report .report-footer {
+    margin-top: 40px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid #dddddd !important;
+  }
+
+  .print-report .report-footer p {
+    margin: 2px 0 !important;
+    font-size: 10px !important;
+    color: #666666 !important;
+    text-align: center !important;
+  }
+}
+
 

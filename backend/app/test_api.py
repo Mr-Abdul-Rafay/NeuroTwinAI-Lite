@@ -2,7 +2,7 @@ import os
 from fastapi.testclient import TestClient
 from tinydb import TinyDB
 
-import database
+from app import database
 
 # Override database file for isolated testing
 TEST_DB_FILE = os.path.join(database.DB_DIR, "db_test.json")
@@ -18,7 +18,7 @@ database.scans_table = database.db.table("scans")
 database.insights_table = database.db.table("insights")
 database.seed_database()
 
-from main import app
+from app.main import app
 
 client = TestClient(app)
 
