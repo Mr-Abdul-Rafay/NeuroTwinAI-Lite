@@ -96,7 +96,12 @@ app = FastAPI(
 # ── CORS ──────────────────────────────────────────────────────────────────────
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 if allowed_origins_env:
-    origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+    # Robust parsing: split by comma, strip whitespace, strip outer quotes, and remove trailing slashes
+    origins = []
+    for origin in allowed_origins_env.split(","):
+        cleaned = origin.strip().strip("'\"").rstrip("/")
+        if cleaned:
+            origins.append(cleaned)
 else:
     origins = [
         "http://localhost:3000",
@@ -104,6 +109,10 @@ else:
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
     ]
+
+# 🔍 DEBUG CORS: Log raw and parsed allowed origins
+logger.info("🔍 DEBUG CORS: Raw ALLOWED_ORIGINS env: %r", allowed_origins_env)
+logger.info("🔍 DEBUG CORS: Final parsed origins list: %r", origins)
 
 app.add_middleware(
     CORSMiddleware,
