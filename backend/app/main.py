@@ -17,6 +17,10 @@ Registered routers
 
 import os
 import tempfile
+from dotenv import load_dotenv
+
+# Load env variables
+load_dotenv()
 
 # CRITICAL: Prevent OpenBLAS thread leaks and memory allocation failures on Windows
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -90,14 +94,20 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+else:
+    origins = [
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

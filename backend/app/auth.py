@@ -1,8 +1,13 @@
+import os
 import datetime
 import bcrypt
 import jwt
+from dotenv import load_dotenv
 
-SECRET_KEY = "NEURO-TWIN-AI-SECURE-KEY-AES-256-SUPER-SECRET"
+# Load env variables
+load_dotenv()
+
+SECRET_KEY = os.getenv("JWT_SECRET", "NEURO-TWIN-AI-SECURE-KEY-AES-256-SUPER-SECRET")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440 # 24 Hours
 
