@@ -14,7 +14,7 @@ import AppShell from './components/AppShell';
 import { PatientProvider } from './context/PatientContext';
 import { usePatientCleanup } from './hooks/usePatientCleanup';
 
-const apiBase = 'http://127.0.0.1:8000';
+const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 // Pages that live inside the AppShell (sidebar + topnav)
 const SHELL_PAGES = [
