@@ -367,7 +367,7 @@ run_segmentation_multi = process_mri_multi
 
 def save_mri_and_mask(upload_id: str, mri_vol: np.ndarray, mask_vol: np.ndarray):
     import os
-    data_dir = "C:/Users/HOME/Desktop/Fyp_NeuroTwinAI-Lite/backend/data"
+    data_dir = str(_BACKEND_DIR / "data")
     os.makedirs(data_dir, exist_ok=True)
     np.save(os.path.join(data_dir, f"{upload_id}_mri.npy"), mri_vol)
     np.save(os.path.join(data_dir, f"{upload_id}_mask.npy"), mask_vol)
@@ -375,7 +375,7 @@ def save_mri_and_mask(upload_id: str, mri_vol: np.ndarray, mask_vol: np.ndarray)
 
 def load_mri_and_mask(upload_id: str) -> tuple[np.ndarray | None, np.ndarray | None]:
     import os
-    data_dir = "C:/Users/HOME/Desktop/Fyp_NeuroTwinAI-Lite/backend/data"
+    data_dir = str(_BACKEND_DIR / "data")
     mri_path = os.path.join(data_dir, f"{upload_id}_mri.npy")
     mask_path = os.path.join(data_dir, f"{upload_id}_mask.npy")
     if os.path.exists(mri_path) and os.path.exists(mask_path):
