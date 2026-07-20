@@ -12,7 +12,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 60000, // 60 second timeout for large files
+  timeout: 60000, // 60-second default socket timeout (essential for heavy 500MB MRI file uploads)
 });
 
 // ── Request interceptor: attach JWT if present ─────────────────────────────

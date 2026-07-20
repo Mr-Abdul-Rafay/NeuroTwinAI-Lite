@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, Brain, Box, Upload, Activity,
-  FileText, Users, LogOut, ChevronLeft, ChevronRight, History
+  FileText, Users, LogOut, ChevronLeft, ChevronRight, History, Sparkles
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { icon: Upload,          label: 'MRI Upload',        page: 'mri-upload' },
   { icon: History,         label: 'Upload History',    page: 'upload-history' },
   { icon: Brain,           label: 'AI Results',        page: 'ai-results' },
+  { icon: Sparkles,        label: 'AI Explainability', page: 'explain' },
   { icon: Box,             label: '3D Twin Viewer',    page: 'twin-viewer' },
   { icon: Activity,        label: 'IoT Monitoring',    page: 'iot-monitoring' },
   { icon: FileText,        label: 'Reports',           page: 'reports' },

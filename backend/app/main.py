@@ -15,14 +15,44 @@ Registered routers
 /api/health      – Health-check probe
 """
 
+import os
+import tempfile
+
+# CRITICAL: Prevent OpenBLAS thread leaks and memory allocation failures on Windows
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
+
+# CRITICAL: Redirect all temp files to avoid C: drive
+# Handle case when D: drive doesn't exist
+if os.path.exists('D:\\') and os.path.isdir('D:\\'):
+    temp_dir = 'D:\\TensorFlow_Temp'
+else:
+    temp_dir = 'C:\\TF_Temp_Cache'
+
+os.makedirs(temp_dir, exist_ok=True)
+os.environ['TF_TEMP_DIR'] = temp_dir
+os.environ['TMP'] = temp_dir
+os.environ['TEMP'] = temp_dir
+os.environ['MKL_TEMP_DIR'] = temp_dir
+tempfile.tempdir = temp_dir
+
+# CRITICAL: Disable MKL to avoid large kernel caches (Commented out: causes immediate crash on Windows CPU)
+# os.environ['TF_DISABLE_MKL'] = '1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+import tensorflow as tf
+# Limit TF memory usage (Commented out: causes immediate crash on Windows CPU)
+# tf.config.threading.set_inter_op_parallelism_threads(2)
+# tf.config.threading.set_intra_op_parallelism_threads(2)
+tf.keras.mixed_precision.set_global_policy('float32')
+
 import logging
 import random
 import datetime
 from typing import Optional
-
-import tensorflow as tf
-# Force float32 policy globally for CPU compatibility
-tf.keras.mixed_precision.set_global_policy('float32')
 
 from fastapi import FastAPI, HTTPException, Depends, Header, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -210,13 +240,16 @@ def login_user(payload: LoginSchema) -> dict:
 @app.get("/api/dashboard/data", tags=["dashboard"])
 def get_dashboard_data(user: dict = Depends(get_current_user)) -> dict:
     """Return KPIs, MRI activity feed, and AI insights for the dashboard."""
-    scans    = database.scans_table.all()
-    insights = database.insights_table.all()
+    Scan = Query()
+    Insight = Query()
+    scans    = database.scans_table.search(Scan.user_email == user["email"])
+    insights = database.insights_table.search(Insight.user_email == user["email"])
 
     scans_sorted   = sorted(scans,    key=lambda x: x.get("created_at", ""), reverse=True)
     insights_sorted = sorted(insights, key=lambda x: x.get("timestamp",  ""), reverse=True)
 
-    total_patients     = 1284
+    Patient = Query()
+    total_patients     = len(database.patients_table.search(Patient.user_email == user["email"]))
     active_scans_count = len([s for s in scans if s["status"] == "PROCESSING"])
     urgent_cases_count = len([s for s in scans if s["status"] == "ACTION REQUIRED"])
     ai_accuracy        = 99.8
@@ -257,6 +290,7 @@ def upload_mri_legacy(
         "status":     "PROCESSING",
         "progress":   0,
         "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "user_email": user["email"]
     }
     database.scans_table.insert(new_scan)
     database.insights_table.insert({
@@ -264,6 +298,7 @@ def upload_mri_legacy(
         "message":       f"Mapping started for {payload.scan_type} on patient {patient_id}.",
         "time_relative": "Just now",
         "timestamp":     datetime.datetime.now(datetime.UTC).isoformat(),
+        "user_email":    user["email"]
     })
     return {"status": "success", "scan": new_scan}
 
@@ -275,18 +310,19 @@ def resolve_scan(
 ) -> dict:
     """Resolve an ACTION REQUIRED scan alert back to PROCESSING."""
     Scan = Query()
-    records = database.scans_table.search(Scan.patient_id == payload.patient_id)
+    records = database.scans_table.search((Scan.patient_id == payload.patient_id) & (Scan.user_email == user["email"]))
     if not records:
         raise HTTPException(status_code=404, detail="Scan record not found")
     database.scans_table.update(
         {"status": "PROCESSING", "progress": 15},
-        Scan.patient_id == payload.patient_id,
+        (Scan.patient_id == payload.patient_id) & (Scan.user_email == user["email"]),
     )
     database.insights_table.insert({
         "type":          "NODE ACTIVATION",
         "message":       f"Manual mapping override initiated for patient {payload.patient_id}.",
         "time_relative": "Just now",
         "timestamp":     datetime.datetime.now(datetime.UTC).isoformat(),
+        "user_email":    user["email"]
     })
     return {"status": "success", "message": f"Processing re-established for {payload.patient_id}"}
 
@@ -299,7 +335,7 @@ def generate_report(
 ) -> dict:
     """Generate an automated clinical text report for a patient."""
     Scan = Query()
-    records = database.scans_table.search(Scan.patient_id == payload.patient_id)
+    records = database.scans_table.search((Scan.patient_id == payload.patient_id) & (Scan.user_email == user["email"]))
     if not records:
         raise HTTPException(status_code=404, detail="Scan patient not found")
     scan_info = records[0]

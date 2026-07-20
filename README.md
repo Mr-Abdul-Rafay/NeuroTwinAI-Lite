@@ -25,7 +25,7 @@
 * **Project Type:** Final Year Project (FYP)
 * **University:** Capital University of Science & Technology (CUST), Islamabad, Pakistan
 * **Supervisor:** Dr. Sabeen Masood
-* **Developer:** Abdul Rafay ([@Mr-Abdul-Rafay](https://github.com/Mr-Abdul-Rafay)) — Full-Stack Developer (FYP Solo Project)
+* **Developer:** Sahibzada Abdul Rafay ([@Mr-Abdul-Rafay](https://github.com/Mr-Abdul-Rafay)) — Full-Stack Developer
 
 ---
 

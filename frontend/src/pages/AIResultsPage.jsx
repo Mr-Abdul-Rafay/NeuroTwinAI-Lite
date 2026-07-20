@@ -251,7 +251,11 @@ export default function AIResultsPage({ onNavigate }) {
               <h3 className="results-section-title" style={{ margin: 0 }}>AI Explanation</h3>
             </div>
             <p className="ai-explanation-text">{explanation}</p>
-            <button className="btn-secondary" style={{ width: '100%', marginTop: '12px' }}>
+            <button 
+              className="btn-secondary" 
+              style={{ width: '100%', marginTop: '12px' }}
+              onClick={() => onNavigate('explain')}
+            >
               View Full Explanation
             </button>
           </GlassCard>

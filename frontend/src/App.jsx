@@ -9,6 +9,7 @@ import IoTMonitoringPage from './pages/IoTMonitoringPage';
 import ReportsPage from './pages/ReportsPage';
 import PatientDirectoryPage from './pages/PatientDirectoryPage';
 import UploadHistoryPage from './pages/UploadHistoryPage';
+import XAIPage from './pages/XAIPage';
 import AppShell from './components/AppShell';
 import { PatientProvider } from './context/PatientContext';
 import { usePatientCleanup } from './hooks/usePatientCleanup';
@@ -18,30 +19,41 @@ const apiBase = 'http://127.0.0.1:8000';
 // Pages that live inside the AppShell (sidebar + topnav)
 const SHELL_PAGES = [
   'dashboard', 'ai-results', 'twin-viewer',
-  'mri-upload', 'iot-monitoring', 'reports', 'patients', 'upload-history',
+  'mri-upload', 'iot-monitoring', 'reports', 'patients', 'upload-history', 'explain',
 ];
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('login');
-  const [user, setUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const token = localStorage.getItem('neuro_token');
+    const savedUser = localStorage.getItem('neuro_user');
+    return (token && savedUser) ? 'dashboard' : 'login';
+  });
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('neuro_user');
+    try {
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      localStorage.removeItem('neuro_token');
+      localStorage.removeItem('neuro_user');
+      return null;
+    }
+  });
 
   usePatientCleanup();
 
   useEffect(() => {
     console.log('✅ NeuroTwinAI-Lite App mounted!');
     console.log('📍 Current path:', window.location.pathname);
-    
-    const token = localStorage.getItem('neuro_token');
-    const savedUser = localStorage.getItem('neuro_user');
-    if (token && savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-        setCurrentPage('dashboard');
-      } catch {
-        localStorage.removeItem('neuro_token');
-        localStorage.removeItem('neuro_user');
-      }
-    }
+
+    const handleForceLogout = () => {
+      setUser(null);
+      setCurrentPage('login');
+    };
+
+    window.addEventListener('neuro:logout', handleForceLogout);
+    return () => {
+      window.removeEventListener('neuro:logout', handleForceLogout);
+    };
   }, []);
 
   const handleLoginSuccess = (token, userProfile) => {
@@ -94,6 +106,7 @@ export default function App() {
             />
           )}
           {currentPage === 'ai-results' && <AIResultsPage onNavigate={setCurrentPage} />}
+          {currentPage === 'explain' && <XAIPage onNavigate={setCurrentPage} />}
           {currentPage === 'twin-viewer' && <TwinViewerPage />}
           {currentPage === 'mri-upload' && <MRIUploadPage apiBase={apiBase} onNavigate={setCurrentPage} />}
           {currentPage === 'iot-monitoring' && <IoTMonitoringPage />}

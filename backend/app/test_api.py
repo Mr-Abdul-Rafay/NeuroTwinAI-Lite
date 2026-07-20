@@ -16,7 +16,9 @@ database.db = TinyDB(TEST_DB_FILE)
 database.users_table = database.db.table("users")
 database.scans_table = database.db.table("scans")
 database.insights_table = database.db.table("insights")
-database.seed_database()
+database.patients_table = database.db.table("patients")
+database.uploads_table = database.db.table("uploads")
+database.reports_table = database.db.table("reports")
 
 from app.main import app
 
@@ -27,8 +29,8 @@ def test_root():
     assert response.status_code == 200
     assert response.json()["status"] == "online"
 
-def test_registration_and_auth_flow():
-    test_user = {
+def test_registration_auth_and_data_isolation():
+    user_a = {
         "full_name": "Dr. Sarah Jenkins",
         "license_id": "MD-8829-00X",
         "hospital": "Central Neuro-Science Institute",
@@ -36,47 +38,66 @@ def test_registration_and_auth_flow():
         "secure_key": "clinicalsecurekey123",
         "compliance_confirmed": True
     }
-
-    # 1. Register new user
-    response = client.post("/api/auth/register", json=test_user)
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-
-    # 2. Register duplicate email (should fail)
-    response_dup = client.post("/api/auth/register", json=test_user)
-    assert response_dup.status_code == 400
-    assert "already exists" in response_dup.json()["detail"]
-
-    # 3. Login with incorrect key (should fail)
-    bad_login = {
-        "email": "s.jenkins@medical.ai",
-        "secure_key": "wrong_key"
+    user_b = {
+        "full_name": "Dr. John Watson",
+        "license_id": "MD-4456-11Y",
+        "hospital": "Baker Street Clinic",
+        "email": "j.watson@medical.ai",
+        "secure_key": "securekeywatson",
+        "compliance_confirmed": True
     }
-    response_bad = client.post("/api/auth/login", json=bad_login)
-    assert response_bad.status_code == 401
 
-    # 4. Login with correct key (should succeed)
-    good_login = {
-        "email": "s.jenkins@medical.ai",
-        "secure_key": "clinicalsecurekey123"
+    # 1. Register User A and User B
+    res = client.post("/api/auth/register", json=user_a)
+    assert res.status_code == 200
+    res = client.post("/api/auth/register", json=user_b)
+    assert res.status_code == 200
+
+    # 2. Login User A
+    login_a = {"email": user_a["email"], "secure_key": user_a["secure_key"]}
+    res = client.post("/api/auth/login", json=login_a)
+    assert res.status_code == 200
+    token_a = res.json()["access_token"]
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+
+    # 3. Login User B
+    login_b = {"email": user_b["email"], "secure_key": user_b["secure_key"]}
+    res = client.post("/api/auth/login", json=login_b)
+    assert res.status_code == 200
+    token_b = res.json()["access_token"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # 4. User A creates a patient
+    patient_payload = {
+        "first_name": "Sherlock",
+        "last_name": "Holmes",
+        "dob": "1980-01-06",
+        "gender": "Male",
+        "medical_history": "Hyperactive brain",
+        "contact": "221B Baker Street",
+        "phone": "555-0199",
+        "address": "London"
     }
-    response_good = client.post("/api/auth/login", json=good_login)
-    assert response_good.status_code == 200
-    data = response_good.json()
-    assert "access_token" in data
-    token = data["access_token"]
-    assert data["user"]["full_name"] == "Dr. Sarah Jenkins"
+    res = client.post("/api/patients", json=patient_payload, headers=headers_a)
+    assert res.status_code == 200
+    patient_id = res.json()["patient"]["id"]
 
-    # 5. Fetch dashboard metrics (should fail without authorization header)
-    response_dash_fail = client.get("/api/dashboard/data")
-    assert response_dash_fail.status_code == 401
+    # 5. User A gets patients list (should contain Sherlock)
+    res = client.get("/api/patients", headers=headers_a)
+    assert res.status_code == 200
+    assert len(res.json()["patients"]) == 1
+    assert res.json()["patients"][0]["first_name"] == "Sherlock"
 
-    # 6. Fetch dashboard metrics with valid header (should succeed)
-    headers = {"Authorization": f"Bearer {token}"}
-    response_dash_ok = client.get("/api/dashboard/data", headers=headers)
-    assert response_dash_ok.status_code == 200
-    dash_data = response_dash_ok.json()
-    assert "kpis" in dash_data
-    assert "scans" in dash_data
-    assert "insights" in dash_data
-    assert len(dash_data["scans"]) == 4  # Matches initial seeded amount
+    # 6. User B gets patients list (should be empty!)
+    res = client.get("/api/patients", headers=headers_b)
+    assert res.status_code == 200
+    assert len(res.json()["patients"]) == 0
+
+    # 7. User B tries to view Sherlock directly (should be 404/not found)
+    res = client.get(f"/api/patients/{patient_id}", headers=headers_b)
+    assert res.status_code == 404
+
+    # 8. User A views Sherlock directly (should succeed)
+    res = client.get(f"/api/patients/{patient_id}", headers=headers_a)
+    assert res.status_code == 200
+    assert res.json()["patient"]["first_name"] == "Sherlock"

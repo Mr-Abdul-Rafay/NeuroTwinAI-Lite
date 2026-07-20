@@ -201,7 +201,7 @@ def generate_mesh(
     """
     # Fetch stored segmentation record
     Upload = Query()
-    records = database.uploads_table.search(Upload.upload_id == body.upload_id)
+    records = database.uploads_table.search((Upload.upload_id == body.upload_id) & (Upload.user_email == user["email"]))
     if not records:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -282,3 +282,190 @@ def generate_mesh(
             "loader.parse(atob(mesh_gltf_b64), '', callback)"
         ),
     }
+
+
+def get_c_free_space_gb():
+    """Monitor free disk space in GB."""
+    try:
+        import shutil
+        total, used, free = shutil.disk_usage("C:\\")
+        return free / (1024 ** 3)
+    except Exception:
+        try:
+            import shutil
+            total, used, free = shutil.disk_usage("/")
+            return free / (1024 ** 3)
+        except Exception:
+            return 0.0
+
+
+def _run_xai_pipeline(mri_vol, target_class, steps):
+    """Runs the XAI pipeline inside a background thread pool."""
+    from app.services.model_service import get_model
+    model = get_model()
+    model_channels = model.input_shape[-1]
+    
+    import numpy as np
+    if model_channels == 1:
+        mri_input = mri_vol[np.newaxis, ..., np.newaxis].astype(np.float32)
+    else:
+        mri_input = np.stack([mri_vol] * model_channels, axis=-1)[np.newaxis].astype(np.float32)
+        
+    from app.services.xai_service import XAIService
+    return XAIService.generate_gradcam(model, mri_input, target_class=target_class, steps=steps)
+
+
+@router.post("/gradcam/{patient_id}")
+async def generate_gradcam(patient_id: str, user: dict = Depends(_get_current_user)):
+    """
+    Generate XAI heatmap with:
+    - NO temp file creation
+    - Automatic cleanup after generation
+    - Error handling with fallback
+    """
+    from app.services.xai_service import XAIService, overlay_heatmap, generate_explanations
+    from app.services.model_service import load_mri_and_mask
+    from tinydb import Query
+    import gc
+    import asyncio
+    from fastapi.concurrency import run_in_threadpool
+
+    free_before = get_c_free_space_gb()
+    logger.info("DISK STORAGE BEFORE XAI: %.2f GB free on C:", free_before)
+
+    upload_id = None
+    try:
+        # Query TinyDB for the uploaded MRI record matching patient_id
+        Upload = Query()
+        records = database.uploads_table.search((Upload.patient_id == patient_id) & (Upload.user_email == user["email"]))
+        if not records:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No upload records found for patient reference ID '{patient_id}'."
+            )
+
+        # Sort to get the latest scan upload
+        records = sorted(records, key=lambda x: x.get("created_at", ""), reverse=True)
+        latest_record = records[0]
+        upload_id = latest_record.get("upload_id")
+
+        seg_info = latest_record.get("segmentation", {})
+        tumor_detected = seg_info.get("tumor_detected", False)
+        tumor_volume = seg_info.get("tumor_volume_cm3", 0.0)
+        confidence = seg_info.get("confidence", 0.0)
+
+        # Load MRI and mask volume
+        logger.info("Loading volumes for patient_id: %s, upload_id: %s", patient_id, upload_id)
+        mri_vol, mask_vol = load_mri_and_mask(upload_id)
+        if mri_vol is None or mask_vol is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"MRI volumetric data or segmentation mask not found on disk for upload {upload_id}"
+            )
+
+        # Fallback steps if memory is low:
+        steps = 10
+        if free_before < 2.0:
+            logger.warning("Low C: drive space (< 2 GB). Falling back to 3 steps for perturbation.")
+            steps = 3
+
+        logger.info("Running perturbation XAI pipeline synchronously...")
+        heatmap_vol, heatmap_max = _run_xai_pipeline(mri_vol, 3, steps)
+
+        # Identify peak slices
+        axial_sums = np.sum(heatmap_vol, axis=(1, 2))
+        sagittal_sums = np.sum(heatmap_vol, axis=(0, 2))
+        coronal_sums = np.sum(heatmap_vol, axis=(0, 1))
+
+        axial_idx = int(np.argmax(axial_sums)) if np.max(axial_sums) > 0.0 else 64
+        sagittal_idx = int(np.argmax(sagittal_sums)) if np.max(sagittal_sums) > 0.0 else 64
+        coronal_idx = int(np.argmax(coronal_sums)) if np.max(coronal_sums) > 0.0 else 64
+
+        # Overlay slices using matplotlib
+        axial_result    = await run_in_threadpool(overlay_heatmap, mri_vol[axial_idx, :, :],    heatmap_vol[axial_idx, :, :])
+        sagittal_result = await run_in_threadpool(overlay_heatmap, mri_vol[:, sagittal_idx, :], heatmap_vol[:, sagittal_idx, :])
+        coronal_result  = await run_in_threadpool(overlay_heatmap, mri_vol[:, :, coronal_idx],  heatmap_vol[:, :, coronal_idx])
+
+        def _unpack_overlay(result, idx):
+            if isinstance(result, dict):
+                return {
+                    "slice_idx":   idx,
+                    "image":       result.get("overlay_png", ""),
+                    "mri_png":     result.get("mri_png", ""),
+                    "heatmap_png": result.get("heatmap_png", ""),
+                    "overlay_png": result.get("overlay_png", ""),
+                }
+            return {"slice_idx": idx, "image": result,
+                    "mri_png": result, "heatmap_png": "", "overlay_png": result}
+
+        axial_overlay    = _unpack_overlay(axial_result,    axial_idx)
+        sagittal_overlay = _unpack_overlay(sagittal_result, sagittal_idx)
+        coronal_overlay  = _unpack_overlay(coronal_result,  coronal_idx)
+
+        # Flatten the 3D heatmap and convert to base64
+        heatmap_uint8 = (heatmap_vol * 255.0).astype(np.uint8)
+        heatmap_b64 = base64.b64encode(heatmap_uint8.tobytes()).decode('utf-8')
+
+        # Generate clinical and patient explanations
+        explanation = generate_explanations(
+            tumor_detected=tumor_detected,
+            volume_cm3=tumor_volume,
+            confidence=confidence,
+            heatmap_max=heatmap_max
+        )
+
+        overlays = {
+            "axial":    axial_overlay,
+            "sagittal": sagittal_overlay,
+            "coronal":  coronal_overlay,
+        }
+
+        technical = {
+            "heatmap_data": heatmap_b64,
+            "confidence": float(confidence),
+            "volume_cm3": float(tumor_volume),
+            "heatmap_max": float(heatmap_max)
+        }
+
+        success_response = {
+            "status": "success",
+            "patient_id": patient_id,
+            "upload_id": upload_id,
+            "explanation": explanation,
+            "overlays": overlays,
+            "explanations": explanation,
+            "key_slices": overlays,
+            "heatmap_data": heatmap_b64,
+            "technical": technical
+        }
+
+        # Store heatmap in database: update the uploads record for this scan
+        database.uploads_table.update(
+            {"xai_heatmap_data": heatmap_b64, "xai_explanation": explanation},
+            (Upload.upload_id == upload_id) & (Upload.user_email == user["email"])
+        )
+        logger.info("Successfully saved heatmap and explanations in database scan upload record.")
+
+        # Keep alias cache update as well for existing cache logic compatibility
+        from app.services.xai_service import set_cached_xai
+        set_cached_xai(upload_id, success_response)
+
+        return success_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("❌ Error generating Grad-CAM XAI for patient %s: %s", patient_id, str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"XAI Grad-CAM generation failed: {str(e)}"
+        )
+    finally:
+        # Force aggressive temp file cleanup and GC
+        XAIService.cleanup_temp_files()
+        gc.collect()
+
+        # Log disk space after
+        free_after = get_c_free_space_gb()
+        logger.info("DISK STORAGE AFTER XAI: %.2f GB free on C: (Delta: %.2f MB)", free_after, (free_after - free_before) * 1024)
+

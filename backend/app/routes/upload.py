@@ -204,6 +204,16 @@ async def upload_mri(
         mri_b64 = base64.b64encode(mri_uint8.tobytes()).decode('utf-8')
         mask_b64 = base64.b64encode(mask_array.astype(np.uint8).tobytes()).decode('utf-8')
 
+    # ── Verify patient ownership if patient exists ──────────────────────────
+    Patient = Query()
+    patient_records = database.patients_table.search(Patient.id == patient_id)
+    if patient_records:
+        if patient_records[0].get("user_email") != user["email"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: patient record belongs to another clinician."
+            )
+
     # ── Persist record in TinyDB ─────────────────────────────────────────────
     upload_record = {
         "upload_id":   upload_id,
@@ -217,17 +227,16 @@ async def upload_mri(
         "created_at":  now_iso,
         "week":        datetime.datetime.now(datetime.UTC).isocalendar()[1],
         "year":        datetime.datetime.now(datetime.UTC).year,
+        "user_email":  user["email"]
     }
     database.uploads_table.insert(upload_record)
 
     # ── Update patient scan count ─────────────────────────────────────────────
-    Patient = Query()
-    patient_records = database.patients_table.search(Patient.id == patient_id)
     if patient_records:
         curr_count = patient_records[0].get("scan_count", 0)
         database.patients_table.update(
             {"scan_count": curr_count + 1, "updated_at": now_iso},
-            Patient.id == patient_id
+            (Patient.id == patient_id) & (Patient.user_email == user["email"])
         )
 
     # Also add an AI Insight to the dashboard feed
@@ -244,6 +253,7 @@ async def upload_mri(
         "message":       insight_msg,
         "time_relative": "Just now",
         "timestamp":     now_iso,
+        "user_email":    user["email"]
     })
 
     logger.info("Upload %s completed successfully.", upload_id)
@@ -283,17 +293,18 @@ def get_recent_uploads(
     JSON list of upload records (newest first)
     """
     limit = min(max(limit, 1), 100)
-    all_uploads = database.uploads_table.all()
+    Upload = Query()
+    user_uploads = database.uploads_table.search(Upload.user_email == user["email"])
     # Sort newest first
     sorted_uploads = sorted(
-        all_uploads,
+        user_uploads,
         key=lambda r: r.get("created_at", ""),
         reverse=True,
     )
     return {
         "status":  "success",
         "uploads": sorted_uploads[:limit],
-        "total":   len(all_uploads),
+        "total":   len(user_uploads),
     }
 
 
@@ -308,18 +319,19 @@ def get_upload_stats(user: dict = Depends(_get_current_user)) -> dict:
     -------
     JSON with total uploads, uploads this week, and success rate
     """
-    all_uploads = database.uploads_table.all()
-    total = len(all_uploads)
+    Upload = Query()
+    user_uploads = database.uploads_table.search(Upload.user_email == user["email"])
+    total = len(user_uploads)
 
     now  = datetime.datetime.now(datetime.UTC)
     this_week_iso = now.isocalendar()[1]
     this_year     = now.year
 
     this_week = sum(
-        1 for r in all_uploads
+        1 for r in user_uploads
         if r.get("week") == this_week_iso and r.get("year") == this_year
     )
-    completed = sum(1 for r in all_uploads if r.get("status") == "Completed")
+    completed = sum(1 for r in user_uploads if r.get("status") == "Completed")
     success_rate = round((completed / total * 100), 1) if total > 0 else 0
 
     return {

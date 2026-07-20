@@ -95,17 +95,19 @@ def create_patient(payload: PatientCreate, user: dict = Depends(_get_current_use
         "address": payload.address.strip() if payload.address else "",
         "scan_count": 0,
         "created_at": now_iso,
-        "updated_at": now_iso
+        "updated_at": now_iso,
+        "user_email": user["email"]
     }
     
     database.patients_table.insert(patient_record)
-    logger.info("Created patient: %s (%s %s)", patient_id, payload.first_name, payload.last_name)
+    logger.info("Created patient: %s (%s %s) for user %s", patient_id, payload.first_name, payload.last_name, user["email"])
     return {"status": "success", "patient": patient_record}
 
 @router.get("", response_model=dict)
 def get_all_patients(user: dict = Depends(_get_current_user)):
-    """Retrieve all patient records."""
-    patients = database.patients_table.all()
+    """Retrieve all patient records for the current user."""
+    Patient = Query()
+    patients = database.patients_table.search(Patient.user_email == user["email"])
     # Sort by creation date descending
     sorted_patients = sorted(
         patients,
@@ -116,18 +118,18 @@ def get_all_patients(user: dict = Depends(_get_current_user)):
 
 @router.get("/{patient_id}", response_model=dict)
 def get_patient(patient_id: str, user: dict = Depends(_get_current_user)):
-    """Retrieve a specific patient record by ID."""
+    """Retrieve a specific patient record by ID, verifying ownership."""
     Patient = Query()
-    records = database.patients_table.search(Patient.id == patient_id)
+    records = database.patients_table.search((Patient.id == patient_id) & (Patient.user_email == user["email"]))
     if not records:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
     return {"status": "success", "patient": records[0]}
 
 @router.put("/{patient_id}", response_model=dict)
 def update_patient(patient_id: str, payload: PatientUpdate, user: dict = Depends(_get_current_user)):
-    """Update editable fields of a patient record."""
+    """Update editable fields of a patient record, verifying ownership."""
     Patient = Query()
-    records = database.patients_table.search(Patient.id == patient_id)
+    records = database.patients_table.search((Patient.id == patient_id) & (Patient.user_email == user["email"]))
     if not records:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
         
@@ -151,45 +153,56 @@ def update_patient(patient_id: str, payload: PatientUpdate, user: dict = Depends
         
     if update_data:
         update_data["updated_at"] = datetime.datetime.now(datetime.UTC).isoformat()
-        database.patients_table.update(update_data, Patient.id == patient_id)
+        database.patients_table.update(update_data, (Patient.id == patient_id) & (Patient.user_email == user["email"]))
         
-    updated_records = database.patients_table.search(Patient.id == patient_id)
+    updated_records = database.patients_table.search((Patient.id == patient_id) & (Patient.user_email == user["email"]))
     logger.info("Updated patient: %s", patient_id)
     return {"status": "success", "patient": updated_records[0]}
 
 @router.delete("/{patient_id}", response_model=dict)
 def delete_patient(patient_id: str, user: dict = Depends(_get_current_user)):
-    """Delete a patient record."""
+    """Delete a patient record, verifying ownership."""
     Patient = Query()
-    records = database.patients_table.search(Patient.id == patient_id)
+    records = database.patients_table.search((Patient.id == patient_id) & (Patient.user_email == user["email"]))
     if not records:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
         
-    database.patients_table.remove(Patient.id == patient_id)
+    database.patients_table.remove((Patient.id == patient_id) & (Patient.user_email == user["email"]))
     
     # Cascade delete patient's associated uploads
     Upload = Query()
-    database.uploads_table.remove(Upload.patient_id == patient_id)
+    database.uploads_table.remove((Upload.patient_id == patient_id) & (Upload.user_email == user["email"]))
     
     # Cascade delete patient's insight/activity entries
     Insight = Query()
-    database.insights_table.remove(Insight.message.search(patient_id))
+    # Remove only this user's insights for this patient
+    database.insights_table.remove((Insight.user_email == user["email"]) & Insight.message.search(patient_id))
 
     logger.info("Deleted patient: %s and their associated uploads", patient_id)
     return {"status": "success", "message": f"Patient {patient_id} and all related scan uploads deleted successfully"}
 
 @router.get("/{patient_id}/uploads", response_model=dict)
 def get_patient_uploads(patient_id: str, user: dict = Depends(_get_current_user)):
-    """Retrieve all MRI uploads associated with a patient."""
+    """Retrieve all MRI uploads associated with a patient, verifying ownership."""
+    Patient = Query()
+    patients = database.patients_table.search((Patient.id == patient_id) & (Patient.user_email == user["email"]))
+    if not patients:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
     Upload = Query()
-    records = database.uploads_table.search(Upload.patient_id == patient_id)
+    records = database.uploads_table.search((Upload.patient_id == patient_id) & (Upload.user_email == user["email"]))
     return {"status": "success", "uploads": records}
 
 @router.get("/{patient_id}/reports", response_model=dict)
 def get_patient_reports(patient_id: str, user: dict = Depends(_get_current_user)):
-    """Generate dynamic clinical reports for patient based on completed uploads."""
+    """Generate dynamic clinical reports for patient based on completed uploads, verifying ownership."""
+    Patient = Query()
+    patients = database.patients_table.search((Patient.id == patient_id) & (Patient.user_email == user["email"]))
+    if not patients:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
     Upload = Query()
-    uploads = database.uploads_table.search(Upload.patient_id == patient_id)
+    uploads = database.uploads_table.search((Upload.patient_id == patient_id) & (Upload.user_email == user["email"]))
     reports = []
     for idx, upload in enumerate(uploads):
         if upload.get("status") == "Completed":
